@@ -116,12 +116,6 @@ const profile = {
   ],
 };
 
-const stats = [
-  ['+12', 'reportes optimizados'],
-  ['5', 'herramientas clave'],
-  ['3', 'areas: datos, web, procesos'],
-];
-
 const hubNodes = [
   {
     id: 'herramientas',
@@ -232,15 +226,6 @@ function App() {
         </div>
       </section>
 
-      <section className="statsBand">
-        {stats.map(([value, label]) => (
-          <article key={label}>
-            <strong>{value}</strong>
-            <span>{label}</span>
-          </article>
-        ))}
-      </section>
-
       <SectionHeader
         id="herramientas"
         icon={<Code2 />}
@@ -248,11 +233,7 @@ function App() {
         title="Herramientas con las que trabajo"
         copy="Una mezcla entre desarrollo, analisis y presentacion de informacion."
       />
-      <section className="toolGrid showcaseSection" data-reveal>
-        {profile.tools.map((tool, index) => (
-          <ToolCard tool={tool} index={index} key={tool} />
-        ))}
-      </section>
+      <ToolsCarousel tools={profile.tools} />
 
       <SectionHeader
         id="experiencia"
@@ -270,7 +251,7 @@ function App() {
         title="Educacion, internships y diplomados"
         copy="Bases academicas y aprendizaje practico que sostienen mi perfil profesional."
       />
-      <Timeline items={profile.education} compact />
+      <EducationCarousel items={profile.education} />
 
       <SectionHeader
         id="proyectos"
@@ -346,6 +327,20 @@ function ToolCard({ tool, index }) {
   );
 }
 
+function ToolsCarousel({ tools }) {
+  const duplicatedTools = [...tools, ...tools];
+
+  return (
+    <section className="toolCarousel" aria-label="Herramientas y tecnologias">
+      <div className="toolCarouselTrack">
+        {duplicatedTools.map((tool, index) => (
+          <ToolCard tool={tool} index={index} key={`${tool}-${index}`} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function getToolLabel(tool) {
   const labels = {
     React: 'Interfaces',
@@ -379,6 +374,41 @@ function Timeline({ items, compact = false }) {
           </div>
         </article>
       ))}
+    </section>
+  );
+}
+
+function EducationCarousel({ items }) {
+  const [activeItem, setActiveItem] = React.useState(null);
+  const duplicatedItems = [...items, ...items];
+
+  return (
+    <section className="educationCarousel showcaseSection" data-reveal onMouseLeave={() => setActiveItem(null)}>
+      <div className="carouselTrack">
+        {duplicatedItems.map((item, index) => (
+          <article
+            className="educationCard spotlightCard"
+            key={`${item.title}-${item.period}-${index}`}
+            style={{ '--delay': `${index * 80}ms` }}
+            onMouseEnter={() => setActiveItem(item)}
+          >
+            <time>{item.period}</time>
+            <div>
+              <h3>{item.title}</h3>
+              <strong>{item.place}</strong>
+              <p>{item.detail}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+      {activeItem && (
+        <article className="educationFocusCard">
+          <time>{activeItem.period}</time>
+          <h3>{activeItem.title}</h3>
+          <strong>{activeItem.place}</strong>
+          <p>{activeItem.detail}</p>
+        </article>
+      )}
     </section>
   );
 }
