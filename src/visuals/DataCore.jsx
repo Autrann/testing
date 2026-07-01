@@ -1,100 +1,122 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
-export function DataCore({ tools }) {
+const lineMap = {
+  topLeft: 'M 50 50 C 38 35, 31 25, 20 18',
+  topRight: 'M 50 50 C 62 34, 71 24, 82 18',
+  bottomLeft: 'M 50 50 C 36 63, 29 76, 18 84',
+  bottomRight: 'M 50 50 C 64 64, 72 77, 84 84',
+};
+
+export function DataCore({ nodes }) {
   const mountRef = useRef(null);
+  const shellRef = useRef(null);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return undefined;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
-    camera.position.set(0, 0.4, 7);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0.15, 6.8);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const group = new THREE.Group();
-    scene.add(group);
+    const atom = new THREE.Group();
+    scene.add(atom);
 
-    const particles = [];
-    const particleGeometry = new THREE.SphereGeometry(0.045, 16, 16);
-    const accentColors = [0x4fe3c1, 0xffc857, 0x7c5cff, 0xf25f5c];
+    const colors = {
+      cyan: 0x4fe3c1,
+      gold: 0xffc857,
+      coral: 0xf25f5c,
+      violet: 0x7c5cff,
+      white: 0xf6f7fb,
+    };
 
-    for (let i = 0; i < 88; i += 1) {
-      const radius = 1.35 + Math.random() * 1.9;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const material = new THREE.MeshBasicMaterial({
-        color: accentColors[i % accentColors.length],
-        transparent: true,
-        opacity: 0.82,
-      });
-      const particle = new THREE.Mesh(particleGeometry, material);
-      particle.position.set(
-        radius * Math.sin(phi) * Math.cos(theta),
-        radius * Math.sin(phi) * Math.sin(theta),
-        radius * Math.cos(phi)
-      );
-      particle.userData.seed = Math.random() * Math.PI * 2;
-      particles.push(particle);
-      group.add(particle);
-    }
-
-    const linePositions = [];
-    particles.forEach((particle, index) => {
-      if (index % 2 === 0 && particles[index + 1]) {
-        linePositions.push(
-          particle.position.x,
-          particle.position.y,
-          particle.position.z,
-          particles[index + 1].position.x,
-          particles[index + 1].position.y,
-          particles[index + 1].position.z
-        );
-      }
-    });
-    const lineGeometry = new THREE.BufferGeometry();
-    lineGeometry.setAttribute(
-      'position',
-      new THREE.Float32BufferAttribute(linePositions, 3)
-    );
-    const lines = new THREE.LineSegments(
-      lineGeometry,
-      new THREE.LineBasicMaterial({ color: 0x9fb4ff, transparent: true, opacity: 0.18 })
-    );
-    group.add(lines);
-
-    const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.05, 2),
+    const nucleus = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.72, 3),
       new THREE.MeshStandardMaterial({
-        color: 0x121827,
-        emissive: 0x183c4a,
-        roughness: 0.38,
-        metalness: 0.28,
-        transparent: true,
-        opacity: 0.92,
+        color: 0x111723,
+        emissive: 0x143c45,
+        roughness: 0.24,
+        metalness: 0.38,
         wireframe: true,
       })
     );
-    group.add(core);
+    atom.add(nucleus);
 
-    const glow = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.22, 2),
+    const innerGlow = new THREE.Mesh(
+      new THREE.SphereGeometry(0.52, 32, 32),
       new THREE.MeshBasicMaterial({
-        color: 0x4fe3c1,
+        color: colors.cyan,
         transparent: true,
-        opacity: 0.08,
-        wireframe: true,
+        opacity: 0.16,
       })
     );
-    group.add(glow);
+    atom.add(innerGlow);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-    const light = new THREE.PointLight(0x4fe3c1, 18, 18);
-    light.position.set(3, 2, 4);
+    const rings = [
+      [0, 0, 0, colors.cyan],
+      [Math.PI / 2.8, 0, Math.PI / 7, colors.gold],
+      [Math.PI / 2, Math.PI / 4, 0, colors.violet],
+      [Math.PI / 2.4, -Math.PI / 5, Math.PI / 3, colors.coral],
+    ].map(([x, y, z, color], index) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1.72 + index * 0.08, 0.008, 16, 160),
+        new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.58,
+        })
+      );
+      ring.rotation.set(x, y, z);
+      atom.add(ring);
+      return ring;
+    });
+
+    const electrons = [];
+    const electronGeometry = new THREE.SphereGeometry(0.065, 18, 18);
+    rings.forEach((ring, index) => {
+      const electron = new THREE.Mesh(
+        electronGeometry,
+        new THREE.MeshBasicMaterial({ color: [colors.cyan, colors.gold, colors.violet, colors.coral][index] })
+      );
+      electron.userData = {
+        radius: 1.72 + index * 0.08,
+        speed: 0.85 + index * 0.18,
+        offset: index * 1.55,
+        ring,
+      };
+      atom.add(electron);
+      electrons.push(electron);
+    });
+
+    const starsGeometry = new THREE.BufferGeometry();
+    const starPositions = [];
+    for (let index = 0; index < 140; index += 1) {
+      starPositions.push(
+        (Math.random() - 0.5) * 7,
+        (Math.random() - 0.5) * 5.2,
+        (Math.random() - 0.5) * 4
+      );
+    }
+    starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+    const stars = new THREE.Points(
+      starsGeometry,
+      new THREE.PointsMaterial({
+        color: colors.white,
+        size: 0.018,
+        transparent: true,
+        opacity: 0.38,
+      })
+    );
+    scene.add(stars);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.82));
+    const light = new THREE.PointLight(colors.cyan, 20, 12);
+    light.position.set(2.8, 2.2, 3.2);
     scene.add(light);
 
     const pointer = { x: 0, y: 0 };
@@ -118,17 +140,25 @@ export function DataCore({ tools }) {
     let frameId = 0;
     const animate = (time) => {
       const t = time * 0.001;
-      group.rotation.y = t * 0.16 + pointer.x * 0.22;
-      group.rotation.x = Math.sin(t * 0.35) * 0.13 + pointer.y * 0.16;
-      core.rotation.x = t * 0.28;
-      core.rotation.z = t * 0.18;
-      glow.rotation.y = -t * 0.18;
-
-      particles.forEach((particle, index) => {
-        const pulse = Math.sin(t * 2 + particle.userData.seed) * 0.09;
-        particle.scale.setScalar(1 + pulse + (index % 5 === 0 ? 0.35 : 0));
+      atom.rotation.y = t * 0.18 + pointer.x * 0.18;
+      atom.rotation.x = Math.sin(t * 0.4) * 0.1 + pointer.y * 0.12;
+      nucleus.rotation.x = t * 0.42;
+      nucleus.rotation.z = t * 0.28;
+      innerGlow.scale.setScalar(1 + Math.sin(t * 2.2) * 0.08);
+      rings.forEach((ring, index) => {
+        ring.rotation.z += 0.0018 + index * 0.0008;
       });
-
+      electrons.forEach((electron) => {
+        const angle = t * electron.userData.speed + electron.userData.offset;
+        const local = new THREE.Vector3(
+          Math.cos(angle) * electron.userData.radius,
+          Math.sin(angle) * electron.userData.radius,
+          0
+        );
+        local.applyEuler(electron.userData.ring.rotation);
+        electron.position.copy(local);
+      });
+      stars.rotation.y = -t * 0.035;
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
@@ -139,18 +169,55 @@ export function DataCore({ tools }) {
       mount.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('resize', resize);
       renderer.dispose();
-      particleGeometry.dispose();
-      lineGeometry.dispose();
+      electronGeometry.dispose();
+      starsGeometry.dispose();
       mount.removeChild(renderer.domElement);
     };
   }, []);
 
+  const handleTilt = (event) => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const rect = shell.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width - 0.5) * 10;
+    const y = ((event.clientY - rect.top) / rect.height - 0.5) * -10;
+    shell.style.setProperty('--tiltX', `${y}deg`);
+    shell.style.setProperty('--tiltY', `${x}deg`);
+  };
+
   return (
-    <div className="dataCore">
-      <div className="canvasShell" ref={mountRef} aria-label="Nucleo 3D interactivo" />
-      <div className="orbitLabel top">{tools[0]}</div>
-      <div className="orbitLabel right">{tools[1]}</div>
-      <div className="orbitLabel bottom">{tools[2]}</div>
+    <div className="dataCore dataCoreHub" ref={shellRef} onPointerMove={handleTilt}>
+      <svg className="connectionLayer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        {nodes.map((node) => (
+          <path className={`connectionLine ${node.tone}`} d={lineMap[node.position]} key={node.id} />
+        ))}
+      </svg>
+
+      <div className="canvasShell atomCanvas" ref={mountRef} aria-label="Atomo 3D interactivo" />
+
+      <div className="centerBadge">
+        <span>Data</span>
+        <strong>Core</strong>
+      </div>
+
+      {nodes.map((node) => (
+        <a className={`hubCard ${node.position} ${node.tone}`} href={`#${node.id}`} key={node.id}>
+          <span className="nodeDot" />
+          <div className="hubPreview">
+            {node.preview.slice(0, 3).map((item, index) => (
+              <span key={item} style={{ '--size': `${54 + index * 16}%` }}>
+                {item}
+              </span>
+            ))}
+          </div>
+          <div className="hubCopy">
+            <small>{node.label}</small>
+            <h3>{node.title}</h3>
+            <p>{node.text}</p>
+          </div>
+          <strong className="hubStat">{node.stat}</strong>
+        </a>
+      ))}
     </div>
   );
 }
